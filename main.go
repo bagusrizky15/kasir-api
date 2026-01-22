@@ -144,8 +144,8 @@ func main() {
 		})
 	})
 
-	fmt.Println("Server running di 8080")
-	err := http.ListenAndServe(":8080", nil)
+	fmt.Println("Server running di 8081")
+	err := http.ListenAndServe(":8081", nil)
 	if err != nil {
 		fmt.Println(err)
 	}
