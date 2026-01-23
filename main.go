@@ -8,21 +8,6 @@ import (
 	"strings"
 )
 
-type Product struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Price int    `json:"price"`
-	Stok  int    `json:"stok"`
-}
-
-var product = []Product{
-	{ID: 1, Name: "Indomie Goreng", Price: 3000, Stok: 10},
-	{ID: 2, Name: "Indomie Ayam Bawang", Price: 3000, Stok: 10},
-	{ID: 3, Name: "Indomie Kari Ayam", Price: 3000, Stok: 10},
-	{ID: 4, Name: "Indomie Ayam Geprek", Price: 3000, Stok: 10},
-	{ID: 5, Name: "Indomie Kari Special", Price: 3000, Stok: 10},
-}
-
 func getProductById(w http.ResponseWriter, r *http.Request) {
 	idStr := strings.TrimPrefix(r.URL.Path, "/api/v1/products/")
 	id, err := strconv.Atoi(idStr)
