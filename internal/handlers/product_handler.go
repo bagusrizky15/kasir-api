@@ -19,11 +19,28 @@ func NewProductHandler(productRepo *repository.ProductRepository) *ProductHandle
 	}
 }
 
+// GetProducts godoc
+// @Summary      Get all products
+// @Description  Ambil semua data product
+// @Tags         Products
+// @Produce      json
+// @Success      200 {array} models.Product
+// @Router       /products [get]
 func (h *ProductHandler) GetProducts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(h.productRepo.GetAll())
 }
 
+// CreateProduct godoc
+// @Summary      Create new product
+// @Description  Tambah product baru
+// @Tags         Products
+// @Accept       json
+// @Produce      json
+// @Param        product body models.Product true "Create product payload"
+// @Success      201 {object} models.Product
+// @Failure      400 {object} map[string]string
+// @Router       /products [post]
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -43,6 +60,16 @@ func getProductId(path string) (int, error) {
 	return strconv.Atoi(idStr)
 }
 
+// GetProductByID godoc
+// @Summary      Get product by ID
+// @Description  Ambil detail product berdasarkan ID
+// @Tags         Products
+// @Produce      json
+// @Param        id   path      int  true  "Product ID"
+// @Success      200  {object}  models.Product
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Router       /products/{id} [get]
 func (h *ProductHandler) GetProductByID(w http.ResponseWriter, r *http.Request) {
 	id, err := getProductId(r.URL.Path)
 	if err != nil {
@@ -60,6 +87,18 @@ func (h *ProductHandler) GetProductByID(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(product)
 }
 
+// UpdateProductByID godoc
+// @Summary      Update product
+// @Description  Update data product berdasarkan ID
+// @Tags         Products
+// @Accept       json
+// @Produce      json
+// @Param        id      path int true "Product ID"
+// @Param        product body models.Product true "Update product payload"
+// @Success      200 {object} models.Product
+// @Failure      400 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Router       /products/{id} [put]
 func (h *ProductHandler) UpdateProductByID(w http.ResponseWriter, r *http.Request) {
 	id, err := getProductId(r.URL.Path)
 	if err != nil {
@@ -83,6 +122,16 @@ func (h *ProductHandler) UpdateProductByID(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(updated)
 }
 
+// DeleteProductByID godoc
+// @Summary      Delete product
+// @Description  Hapus product berdasarkan ID
+// @Tags         Products
+// @Produce      json
+// @Param        id path int true "Product ID"
+// @Success      200 {object} map[string]string
+// @Failure      400 {object} map[string]string
+// @Failure      404 {object} map[string]string
+// @Router       /products/{id} [delete]
 func (h *ProductHandler) DeleteProductByID(w http.ResponseWriter, r *http.Request) {
 	id, err := getProductId(r.URL.Path)
 	if err != nil {
