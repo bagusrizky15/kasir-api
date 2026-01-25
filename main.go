@@ -14,7 +14,7 @@ import (
 // @title           kasir API
 // @version         1.0
 // @description     API CRUD Category
-// @host            localhost:8081
+// @host            kasir-api.bagusrizky.my.id
 // @BasePath        /api/v1
 func main() {
 	// Swagger UI
