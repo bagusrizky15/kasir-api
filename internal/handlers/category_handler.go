@@ -1,0 +1,108 @@
+package handlers
+
+import (
+	"encoding/json"
+	"kasir-api/internal/models"
+	"kasir-api/internal/repository"
+	"net/http"
+	"strconv"
+	"strings"
+)
+
+type CategoryHandler struct {
+	categoryRepo *repository.CategoryRepository
+}
+
+func NewCategoryHandler(categoryRepo *repository.CategoryRepository) *CategoryHandler {
+	return &CategoryHandler{
+		categoryRepo: categoryRepo,
+	}
+}
+
+func (h *CategoryHandler) GetCategories(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(h.categoryRepo.GetAll())
+}
+
+func (h *CategoryHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var payload models.Category
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	category := h.categoryRepo.Create(payload)
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(category)
+}
+
+func getCategoryId(path string) (int, error) {
+	idStr := strings.TrimPrefix(path, "/api/v1/categories/")
+	return strconv.Atoi(idStr)
+}
+
+func (h *CategoryHandler) GetCategoryByID(w http.ResponseWriter, r *http.Request) {
+	id, err := getCategoryId(r.URL.Path)
+	if err != nil {
+		http.Error(w, "Invalid category ID", http.StatusBadRequest)
+		return
+	}
+
+	category, found := h.categoryRepo.GetByID(id)
+	if !found {
+		http.Error(w, "Category not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(category)
+}
+
+func (h *CategoryHandler) UpdateCategoryByID(w http.ResponseWriter, r *http.Request) {
+	id, err := getCategoryId(r.URL.Path)
+	if err != nil {
+		http.Error(w, "Invalid category ID", http.StatusBadRequest)
+		return
+	}
+
+	var payload models.Category
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	updatedCategory, found := h.categoryRepo.Update(id, payload)
+	if !found {
+		http.Error(w, "Category not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updatedCategory)
+}
+
+func (h *CategoryHandler) DeleteCategoryByID(w http.ResponseWriter, r *http.Request) {
+	id, err := getCategoryId(r.URL.Path)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Invalid category ID",
+		})
+		return
+	}
+
+	if !h.categoryRepo.Delete(id) {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Category not found",
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Category deleted successfully",
+	})
+}
