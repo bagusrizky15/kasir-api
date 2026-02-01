@@ -1,56 +1,136 @@
 package repository
 
-import "kasir-api/internal/models"
+import (
+	"database/sql"
+	"kasir-api/internal/models"
+)
 
 type ProductRepository struct {
-	products []models.Product
+	db *sql.DB
 }
 
-func NewProductRepository() *ProductRepository {
+func NewProductRepository(db *sql.DB) *ProductRepository {
 	return &ProductRepository{
-		products: []models.Product{
-			{ID: 1, Name: "Indomie Goreng", Price: 3000, Stock: 10},
-			{ID: 2, Name: "Indomie Ayam Bawang", Price: 3000, Stock: 10},
-		},
+		db: db,
 	}
 }
 
-func (r *ProductRepository) GetAll() []models.Product {
-	return r.products
-}
+func (r *ProductRepository) GetAll() ([]models.Product, error) {
+	query := "SELECT id, name, price, stock FROM products ORDER BY id"
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-func (r *ProductRepository) GetByID(id int) (models.Product, bool) {
-	for _, p := range r.products {
-		if p.ID == id {
-			return p, true
+	var products []models.Product
+
+	for rows.Next() {
+		var p models.Product
+		if err := rows.Scan(
+			&p.ID,
+			&p.Name,
+			&p.Price,
+			&p.Stock,
+		); err != nil {
+			return nil, err
 		}
+
+		products = append(products, p)
 	}
-	return models.Product{}, false
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return products, nil
 }
 
-func (r *ProductRepository) Create(product models.Product) models.Product {
-	product.ID = len(r.products) + 1
-	r.products = append(r.products, product)
-	return product
-}
+func (r *ProductRepository) GetByID(id int) (models.Product, error) {
+	query := `
+		SELECT id, name, price, stock
+		FROM products
+		WHERE id = $1
+	`
 
-func (r *ProductRepository) Update(id int, updated models.Product) (models.Product, bool) {
-	for i, p := range r.products {
-		if p.ID == id {
-			updated.ID = id
-			r.products[i] = updated
-			return updated, true
+	var p models.Product
+	err := r.db.QueryRow(query, id).Scan(
+		&p.ID,
+		&p.Name,
+		&p.Price,
+		&p.Stock,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return models.Product{}, err
 		}
+		return models.Product{}, err
 	}
-	return models.Product{}, false
+
+	return p, nil
 }
 
-func (r *ProductRepository) Delete(id int) bool {
-	for i, p := range r.products {
-		if p.ID == id {
-			r.products = append(r.products[:i], r.products[i+1:]...)
-			return true
-		}
+func (r *ProductRepository) Create(product models.Product) (models.Product, error) {
+	query := `
+		INSERT INTO products (name, price, stock)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`
+
+	err := r.db.QueryRow(
+		query,
+		product.Name,
+		product.Price,
+		product.Stock,
+	).Scan(&product.ID)
+
+	if err != nil {
+		return models.Product{}, err
 	}
-	return false
+
+	return product, nil
+}
+
+func (r *ProductRepository) Update(id int, updated models.Product) (models.Product, error) {
+	query := `
+		UPDATE products
+		SET name = $1, price = $2, stock = $3
+		WHERE id = $4
+		RETURNING id
+	`
+
+	err := r.db.QueryRow(
+		query,
+		updated.Name,
+		updated.Price,
+		updated.Stock,
+		id,
+	).Scan(&updated.ID)
+
+	if err != nil {
+		return models.Product{}, err
+	}
+
+	return updated, nil
+}
+
+func (r *ProductRepository) Delete(id int) error {
+	query := `DELETE FROM products WHERE id = $1`
+
+	result, err := r.db.Exec(query, id)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }

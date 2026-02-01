@@ -1,21 +1,22 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"kasir-api/internal/models"
-	"kasir-api/internal/repository"
+	"kasir-api/internal/services"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
 type ProductHandler struct {
-	productRepo *repository.ProductRepository
+	service *services.ProductService
 }
 
-func NewProductHandler(productRepo *repository.ProductRepository) *ProductHandler {
+func NewProductHandler(service *services.ProductService) *ProductHandler {
 	return &ProductHandler{
-		productRepo: productRepo,
+		service: service,
 	}
 }
 
@@ -25,10 +26,22 @@ func NewProductHandler(productRepo *repository.ProductRepository) *ProductHandle
 // @Tags         Products
 // @Produce      json
 // @Success      200 {array} models.Product
+// @Failure      500 {object} map[string]string
 // @Router       /products [get]
 func (h *ProductHandler) GetProducts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	products, err := h.service.GetAll()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(h.productRepo.GetAll())
+	json.NewEncoder(w).Encode(products)
 }
 
 // CreateProduct godoc
@@ -40,24 +53,24 @@ func (h *ProductHandler) GetProducts(w http.ResponseWriter, r *http.Request) {
 // @Param        product body models.Product true "Create product payload"
 // @Success      201 {object} models.Product
 // @Failure      400 {object} map[string]string
+// @Failure      500 {object} map[string]string
 // @Router       /products [post]
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	var payload models.Product
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	product := h.productRepo.Create(payload)
+	product, err := h.service.Create(payload)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(product)
-}
-
-func getProductId(path string) (int, error) {
-	idStr := strings.TrimPrefix(path, "/api/v1/products/")
-	return strconv.Atoi(idStr)
 }
 
 // GetProductByID godoc
@@ -69,6 +82,7 @@ func getProductId(path string) (int, error) {
 // @Success      200  {object}  models.Product
 // @Failure      400  {object}  map[string]string
 // @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
 // @Router       /products/{id} [get]
 func (h *ProductHandler) GetProductByID(w http.ResponseWriter, r *http.Request) {
 	id, err := getProductId(r.URL.Path)
@@ -77,9 +91,13 @@ func (h *ProductHandler) GetProductByID(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	product, found := h.productRepo.GetByID(id)
-	if !found {
-		http.Error(w, "Product not found", http.StatusNotFound)
+	product, err := h.service.GetByID(id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Product not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -98,6 +116,7 @@ func (h *ProductHandler) GetProductByID(w http.ResponseWriter, r *http.Request) 
 // @Success      200 {object} models.Product
 // @Failure      400 {object} map[string]string
 // @Failure      404 {object} map[string]string
+// @Failure      500 {object} map[string]string
 // @Router       /products/{id} [put]
 func (h *ProductHandler) UpdateProductByID(w http.ResponseWriter, r *http.Request) {
 	id, err := getProductId(r.URL.Path)
@@ -112,9 +131,13 @@ func (h *ProductHandler) UpdateProductByID(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	updated, found := h.productRepo.Update(id, payload)
-	if !found {
-		http.Error(w, "Product not found", http.StatusNotFound)
+	updated, err := h.service.Update(id, payload)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Product not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -131,22 +154,21 @@ func (h *ProductHandler) UpdateProductByID(w http.ResponseWriter, r *http.Reques
 // @Success      200 {object} map[string]string
 // @Failure      400 {object} map[string]string
 // @Failure      404 {object} map[string]string
+// @Failure      500 {object} map[string]string
 // @Router       /products/{id} [delete]
 func (h *ProductHandler) DeleteProductByID(w http.ResponseWriter, r *http.Request) {
 	id, err := getProductId(r.URL.Path)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Invalid product ID",
-		})
+		http.Error(w, "Invalid product ID", http.StatusBadRequest)
 		return
 	}
 
-	if !h.productRepo.Delete(id) {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Product not found",
-		})
+	if err := h.service.Delete(id); err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Product not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -154,4 +176,10 @@ func (h *ProductHandler) DeleteProductByID(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "Product deleted successfully",
 	})
+}
+
+// helper
+func getProductId(path string) (int, error) {
+	idStr := strings.TrimPrefix(path, "/api/v1/products/")
+	return strconv.Atoi(idStr)
 }

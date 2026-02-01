@@ -1,56 +1,130 @@
 package repository
 
-import "kasir-api/internal/models"
+import (
+	"database/sql"
+	"kasir-api/internal/models"
+)
 
 type CategoryRepository struct {
-	categories []models.Category
+	db *sql.DB
 }
 
-func NewCategoryRepository() *CategoryRepository {
+func NewCategoryRepository(db *sql.DB) *CategoryRepository {
 	return &CategoryRepository{
-		categories: []models.Category{
-			{ID: 1, Name: "Makanan", Description: "Makanan Instan"},
-			{ID: 2, Name: "Minuman", Description: "Minuman Dingin"},
-		},
+		db: db,
 	}
 }
 
-func (r *CategoryRepository) GetAll() []models.Category {
-	return r.categories
-}
+// ===== GET ALL =====
+func (r *CategoryRepository) GetAll() ([]models.Category, error) {
+	rows, err := r.db.Query(`
+		SELECT id, name, description
+		FROM categories
+		ORDER BY id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-func (r *CategoryRepository) GetByID(id int) (models.Category, bool) {
-	for _, p := range r.categories {
-		if p.ID == id {
-			return p, true
+	var categories []models.Category
+
+	for rows.Next() {
+		var c models.Category
+		if err := rows.Scan(
+			&c.ID,
+			&c.Name,
+			&c.Description,
+		); err != nil {
+			return nil, err
 		}
+		categories = append(categories, c)
 	}
-	return models.Category{}, false
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return categories, nil
 }
 
-func (r *CategoryRepository) Create(category models.Category) models.Category {
-	category.ID = len(r.categories) + 1
-	r.categories = append(r.categories, category)
-	return category
+// ===== GET BY ID =====
+func (r *CategoryRepository) GetByID(id int) (models.Category, error) {
+	var c models.Category
+
+	err := r.db.QueryRow(`
+		SELECT id, name, description
+		FROM categories
+		WHERE id = $1
+	`, id).Scan(
+		&c.ID,
+		&c.Name,
+		&c.Description,
+	)
+
+	if err != nil {
+		return models.Category{}, err
+	}
+
+	return c, nil
 }
 
-func (r *CategoryRepository) Update(id int, updated models.Category) (models.Category, bool) {
-	for i, category := range r.categories {
-		if category.ID == id {
-			updated.ID = id
-			r.categories[i] = updated
-			return updated, true
-		}
+// ===== CREATE =====
+func (r *CategoryRepository) Create(category models.Category) (models.Category, error) {
+	err := r.db.QueryRow(`
+		INSERT INTO categories (name, description)
+		VALUES ($1, $2)
+		RETURNING id
+	`,
+		category.Name,
+		category.Description,
+	).Scan(&category.ID)
+
+	if err != nil {
+		return models.Category{}, err
 	}
-	return models.Category{}, false
+
+	return category, nil
 }
 
-func (r *CategoryRepository) Delete(id int) bool {
-	for i, category := range r.categories {
-		if category.ID == id {
-			r.categories = append(r.categories[:i], r.categories[i+1:]...)
-			return true
-		}
+// ===== UPDATE =====
+func (r *CategoryRepository) Update(id int, updated models.Category) (models.Category, error) {
+	err := r.db.QueryRow(`
+		UPDATE categories
+		SET name = $1, description = $2
+		WHERE id = $3
+		RETURNING id
+	`,
+		updated.Name,
+		updated.Description,
+		id,
+	).Scan(&updated.ID)
+
+	if err != nil {
+		return models.Category{}, err
 	}
-	return false
+
+	return updated, nil
+}
+
+// ===== DELETE =====
+func (r *CategoryRepository) Delete(id int) error {
+	result, err := r.db.Exec(`
+		DELETE FROM categories
+		WHERE id = $1
+	`, id)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
 }

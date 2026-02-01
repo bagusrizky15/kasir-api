@@ -1,21 +1,22 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"kasir-api/internal/models"
-	"kasir-api/internal/repository"
+	"kasir-api/internal/services"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
 type CategoryHandler struct {
-	categoryRepo *repository.CategoryRepository
+	service *services.CategoryService
 }
 
-func NewCategoryHandler(categoryRepo *repository.CategoryRepository) *CategoryHandler {
+func NewCategoryHandler(service *services.CategoryService) *CategoryHandler {
 	return &CategoryHandler{
-		categoryRepo: categoryRepo,
+		service: service,
 	}
 }
 
@@ -25,10 +26,17 @@ func NewCategoryHandler(categoryRepo *repository.CategoryRepository) *CategoryHa
 // @Tags         Categories
 // @Produce      json
 // @Success      200 {array} models.Category
+// @Failure      500 {object} map[string]string
 // @Router       /categories [get]
 func (h *CategoryHandler) GetCategories(w http.ResponseWriter, r *http.Request) {
+	categories, err := h.service.GetAll()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(h.categoryRepo.GetAll())
+	json.NewEncoder(w).Encode(categories)
 }
 
 // CreateCategory godoc
@@ -40,17 +48,22 @@ func (h *CategoryHandler) GetCategories(w http.ResponseWriter, r *http.Request) 
 // @Param        category body models.Category true "Create category payload"
 // @Success      201 {object} models.Category
 // @Failure      400 {object} map[string]string
+// @Failure      500 {object} map[string]string
 // @Router       /categories [post]
 func (h *CategoryHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
 	var payload models.Category
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	category := h.categoryRepo.Create(payload)
+	category, err := h.service.Create(payload)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(category)
 }
@@ -69,6 +82,7 @@ func getCategoryId(path string) (int, error) {
 // @Success      200  {object}  models.Category
 // @Failure      400  {object}  map[string]string
 // @Failure      404  {object}  map[string]string
+// @Failure      500  {object}  map[string]string
 // @Router       /categories/{id} [get]
 func (h *CategoryHandler) GetCategoryByID(w http.ResponseWriter, r *http.Request) {
 	id, err := getCategoryId(r.URL.Path)
@@ -77,9 +91,13 @@ func (h *CategoryHandler) GetCategoryByID(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	category, found := h.categoryRepo.GetByID(id)
-	if !found {
-		http.Error(w, "Category not found", http.StatusNotFound)
+	category, err := h.service.GetByID(id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Category not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -98,6 +116,7 @@ func (h *CategoryHandler) GetCategoryByID(w http.ResponseWriter, r *http.Request
 // @Success      200 {object} models.Category
 // @Failure      400 {object} map[string]string
 // @Failure      404 {object} map[string]string
+// @Failure      500 {object} map[string]string
 // @Router       /categories/{id} [put]
 func (h *CategoryHandler) UpdateCategoryByID(w http.ResponseWriter, r *http.Request) {
 	id, err := getCategoryId(r.URL.Path)
@@ -112,9 +131,13 @@ func (h *CategoryHandler) UpdateCategoryByID(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	updatedCategory, found := h.categoryRepo.Update(id, payload)
-	if !found {
-		http.Error(w, "Category not found", http.StatusNotFound)
+	updatedCategory, err := h.service.Update(id, payload)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Category not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -131,22 +154,21 @@ func (h *CategoryHandler) UpdateCategoryByID(w http.ResponseWriter, r *http.Requ
 // @Success      200 {object} map[string]string
 // @Failure      400 {object} map[string]string
 // @Failure      404 {object} map[string]string
+// @Failure      500 {object} map[string]string
 // @Router       /categories/{id} [delete]
 func (h *CategoryHandler) DeleteCategoryByID(w http.ResponseWriter, r *http.Request) {
 	id, err := getCategoryId(r.URL.Path)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Invalid category ID",
-		})
+		http.Error(w, "Invalid category ID", http.StatusBadRequest)
 		return
 	}
 
-	if !h.categoryRepo.Delete(id) {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]string{
-			"error": "Category not found",
-		})
+	if err := h.service.Delete(id); err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Category not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
