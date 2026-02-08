@@ -17,8 +17,8 @@ func NewProductService(repo *repository.ProductRepository) *ProductService {
 }
 
 // Get all products
-func (s *ProductService) GetAll() ([]models.Product, error) {
-	return s.repo.GetAll()
+func (s *ProductService) GetAll(name string) ([]models.Product, error) {
+	return s.repo.GetAll(name)
 }
 
 // Get product by ID

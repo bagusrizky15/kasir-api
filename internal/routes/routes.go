@@ -21,6 +21,15 @@ func SetupRoutes(mux *http.ServeMux, db *sql.DB) {
 	categoryService := services.NewCategoryService(categoryRepo)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 
+	// ===== TRANSACTIONS =====
+	transactionRepo := repository.NewTransactionRepository(db)
+	transactionService := services.NewTransactionService(transactionRepo)
+	transactionHandler := handlers.NewTransactionHandler(transactionService)
+
+	reportRepo := repository.NewReportRepository(db)
+	reportService := services.NewReportService(reportRepo)
+	reportHandler := handlers.GetTodaySalesReport(reportService)
+
 	// ===== PRODUCT ROUTES =====
 	mux.HandleFunc("/api/v1/products", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -69,5 +78,15 @@ func SetupRoutes(mux *http.ServeMux, db *sql.DB) {
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
+	})
+
+	// ===== TRANSACTION ROUTES =====
+	mux.HandleFunc("/api/v1/checkout", func(w http.ResponseWriter, r *http.Request) {
+		transactionHandler.HandleCheckout(w, r)
+	})
+
+	// ===== REPORT ROUTES =====
+	mux.HandleFunc("/api/v1/report/today", func(w http.ResponseWriter, r *http.Request) {
+		reportHandler(w, r)
 	})
 }

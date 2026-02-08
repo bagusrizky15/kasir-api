@@ -1,5 +1,12 @@
 basePath: /api/v1
 definitions:
+  models.BestSeller:
+    properties:
+      nama:
+        type: string
+      qty_terjual:
+        type: integer
+    type: object
   models.Category:
     properties:
       description:
@@ -8,6 +15,20 @@ definitions:
         type: integer
       name:
         type: string
+    type: object
+  models.CheckoutItem:
+    properties:
+      product_id:
+        type: integer
+      quantity:
+        type: integer
+    type: object
+  models.CheckoutRequest:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/models.CheckoutItem'
+        type: array
     type: object
   models.Product:
     properties:
@@ -20,10 +41,47 @@ definitions:
       stok:
         type: integer
     type: object
-host: kasir-api.bagusrizky.my.id
+  models.SalesReport:
+    properties:
+      produk_terlaris:
+        $ref: '#/definitions/models.BestSeller'
+      total_revenue:
+        type: integer
+      total_transaksi:
+        type: integer
+    type: object
+  models.Transaction:
+    properties:
+      created_at:
+        type: string
+      details:
+        items:
+          $ref: '#/definitions/models.TransactionDetail'
+        type: array
+      id:
+        type: integer
+      total_amount:
+        type: integer
+    type: object
+  models.TransactionDetail:
+    properties:
+      id:
+        type: integer
+      product_id:
+        type: integer
+      product_name:
+        type: string
+      quantity:
+        type: integer
+      subtotal:
+        type: integer
+      transaction_id:
+        type: integer
+    type: object
+host: localhost:8081
 info:
   contact: {}
-  description: API CRUD Category
+  description: API CRUD Category & Product
   title: kasir API
   version: "1.0"
 paths:
@@ -39,6 +97,12 @@ paths:
             items:
               $ref: '#/definitions/models.Category'
             type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       summary: Get all categories
       tags:
       - Categories
@@ -62,6 +126,12 @@ paths:
             $ref: '#/definitions/models.Category'
         "400":
           description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
           schema:
             additionalProperties:
               type: string
@@ -99,6 +169,12 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       summary: Delete category
       tags:
       - Categories
@@ -125,6 +201,12 @@ paths:
             type: object
         "404":
           description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
           schema:
             additionalProperties:
               type: string
@@ -167,9 +249,49 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       summary: Update category
       tags:
       - Categories
+  /checkout:
+    post:
+      consumes:
+      - application/json
+      description: Melakukan checkout dan membuat transaksi baru
+      parameters:
+      - description: Checkout items
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CheckoutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Transaction'
+        "400":
+          description: Invalid request body
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create checkout
+      tags:
+      - Transactions
   /products:
     get:
       description: Ambil semua data product
@@ -182,6 +304,12 @@ paths:
             items:
               $ref: '#/definitions/models.Product'
             type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       summary: Get all products
       tags:
       - Products
@@ -205,6 +333,12 @@ paths:
             $ref: '#/definitions/models.Product'
         "400":
           description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
           schema:
             additionalProperties:
               type: string
@@ -242,6 +376,12 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       summary: Delete product
       tags:
       - Products
@@ -268,6 +408,12 @@ paths:
             type: object
         "404":
           description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
           schema:
             additionalProperties:
               type: string
@@ -310,7 +456,43 @@ paths:
             additionalProperties:
               type: string
             type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       summary: Update product
       tags:
       - Products
+  /report/today:
+    get:
+      consumes:
+      - application/json
+      description: Menampilkan total revenue, total transaksi, dan produk terlaris
+        hari ini
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SalesReport'
+        "405":
+          description: Method not allowed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Sales report hari ini
+      tags:
+      - Reports
+schemes:
+- http
 swagger: "2.0"
