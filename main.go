@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -86,8 +85,10 @@ func main() {
 	handler := middleware.EnableCORS(mux)
 
 	// ===== SERVER =====
-	fmt.Println("Server running on port", cfg.Port)
+	log.Printf("Server running on port %s\n", cfg.Port)
+
 	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
-		log.Fatal(err)
+		log.Println("server stopped:", err)
 	}
+
 }
